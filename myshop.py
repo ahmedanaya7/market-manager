@@ -1,15 +1,16 @@
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from typing import Optional
 
 import models
 from database import SessionLocal, engine
 
-shopie = FastAPI()
-
+app = FastAPI()
 
 models.Base.metadata.create_all(bind=engine)
-
+#models.Base.metadata.drop_all(bind=engine)
+models.Base.metadata.create_all(bind=engine)
 def get_my_db():
     db = SessionLocal()
     try:
@@ -19,44 +20,39 @@ def get_my_db():
 
 class ProductCreate(BaseModel):
     name: str
+    description: Optional[str] = ""
     price: float
-    stock: int
+    quantity: int
 
-@shopie.get('/')
+@app.get('/')
 def home():
     return {"status": "Success", "message": "Market Manager website!"}
 
-
-@shopie.get('/products')
+@app.get('/products')
 def Get_Your_Products(db: Session = Depends(get_my_db)):
     db_products = db.query(models.Products).all()
-    return {"product_list": db_products}
-    
+    return db_products
 
-@shopie.get('/products/{id}')
+@app.get('/products/{id}')
 def Get_Your_Products_By_id(id: int, db: Session = Depends(get_my_db)):
     db_products = db.query(models.Products).filter(models.Products.id == id).first()
-
     if not db_products:
         return {'Error': 'Product not found'}
     return {'select_product': db_products}
 
-
-@shopie.post('/products')
+@app.post('/products')
 def Add_Your_Product(product: ProductCreate, db: Session = Depends(get_my_db)):
-    #db_product = db.query(models.Products).filter(models.Products.id == id).first()
     product_add = models.Products(
         product_name=product.name,
         price=product.price, 
-        stock_quantity=product.stock
+        stock_quantity=product.quantity
     )
     db.add(product_add)
     db.commit()
     db.refresh(product_add)
     return {"Status": "Success", "Message": "Product added successfully!", "product": product_add}
 
-
-@shopie.put('/products/{id}')
+@app.put('/products/{id}')
 def Update_Your_Products(id: int, product: ProductCreate, db: Session = Depends(get_my_db)):
     db_product = db.query(models.Products).filter(models.Products.id == id).first()
     
@@ -65,14 +61,13 @@ def Update_Your_Products(id: int, product: ProductCreate, db: Session = Depends(
     
     db_product.product_name = product.name
     db_product.price = product.price
-    db_product.stock_quantity = product.stock
+    db_product.stock_quantity = product.quantity
     
     db.commit()
     db.refresh(db_product)
     return {"Message": "Product updated successfully!", "updated_product": db_product}
 
-
-@shopie.delete('/product/{id}')
+@app.delete('/products/{id}')
 def Delete_Your_Products(id: int, db: Session = Depends(get_my_db)):
     db_product = db.query(models.Products).filter(models.Products.id == id).first()
     
